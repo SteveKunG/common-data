@@ -1,0 +1,36 @@
+plugins {
+    id "java"
+    id "idea"
+}
+
+group = "com.stevekung"
+version = "1.0-SNAPSHOT"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // https://mvnrepository.com/artifact/com.google.guava/guava
+    implementation "com.google.guava:guava:33.4.8-jre"
+
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+    implementation "org.apache.commons:commons-lang3:3.18.0"
+
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
+    implementation "org.slf4j:slf4j-api:2.0.17"
+
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-simple
+    implementation "org.slf4j:slf4j-simple:2.0.17"
+
+    // https://mvnrepository.com/artifact/org.jetbrains/annotations
+    implementation "org.jetbrains:annotations:26.0.2-1"
+
+    testImplementation platform("org.junit:junit-bom:5.10.0")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+test {
+    useJUnitPlatform()
+}
