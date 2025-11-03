@@ -1,9 +1,8 @@
 package com.stevekung.common.data;
 
-import java.text.SimpleDateFormat;
 import java.time.*;
+import java.time.chrono.ChronoLocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.Temporal;
 import java.util.Locale;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -16,17 +15,17 @@ import com.google.common.base.Preconditions;
 public final class DateConverter {
     private DateConverter() {}
 
-    public static DateConverterBuilder builder() {
-        return new DateConverterBuilder();
+    public static Builder builder() {
+        return new Builder();
     }
 
-    public static final class DateConverterBuilder {
-        private long epochMilli;
+    public static final class Builder {
+        private long epochMillis;
         @Nullable
-        private BiFunction<String, String, String> inputCondition;
+        private BiFunction<String, String, String> patternResolver;
         private String outputPattern;
         @Nullable
-        private Function<LocalDate, Temporal> outputDateFormat;
+        private Function<LocalDate, ChronoLocalDate> outputDateFormat;
         private Locale inputLocale = Locale.ROOT;
         private Locale outputLocale = Locale.ROOT;
         private final ZoneId zone = ZoneId.systemDefault();
@@ -36,25 +35,30 @@ public final class DateConverter {
         @Nullable
         private UnaryOperator<LocalDateTime> modifyOutputDateTime;
 
-        private DateConverterBuilder() {}
+        private Builder() {}
 
-        public DateConverterBuilder current() {
-            this.epochMilli = Instant.now().toEpochMilli();
+        public Builder current() {
+            this.epochMillis = Instant.now().toEpochMilli();
             return this;
         }
 
-        public DateConverterBuilder inputCondition(BiFunction<String, String, String> predicate) {
-            this.inputCondition = predicate;
+        public Builder patternResolver(BiFunction<String, String, String> patternResolver) {
+            this.patternResolver = patternResolver;
             return this;
         }
 
-        public DateConverterBuilder modifyOutput(UnaryOperator<LocalDateTime> modifyInputDateTime) {
+        public Builder transform(UnaryOperator<LocalDateTime> modifyInputDateTime) {
             this.modifyOutputDateTime = modifyInputDateTime;
             return this;
         }
 
-        public DateConverterBuilder from(String input, String inputPattern) {
-            DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern(this.inputCondition != null ? this.inputCondition.apply(input, inputPattern) : inputPattern, this.inputLocale);
+        public Builder fromEpochMillis(long ms) {
+            this.epochMillis = ms;
+            return this;
+        }
+
+        public Builder from(String input, String inputPattern) {
+            DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern(this.patternResolver != null ? this.patternResolver.apply(input, inputPattern) : inputPattern, this.inputLocale);
             this.inputDateTime = LocalDateTime.parse(input, inputFormatter);
 
             if (this.modifyOutputDateTime != null) {
@@ -62,41 +66,42 @@ public final class DateConverter {
             }
 
             ZonedDateTime zdt = this.inputDateTime.atZone(this.zone);
-            this.epochMilli = zdt.toInstant().toEpochMilli();
+            this.epochMillis = zdt.toInstant().toEpochMilli();
             return this;
         }
 
-        public DateConverterBuilder to(String outputPattern) {
+        public Builder to(String outputPattern) {
             this.outputPattern = outputPattern;
             return this;
         }
 
-        public DateConverterBuilder outputDateTo(Function<LocalDate, Temporal> outputDateFormat) {
+        public Builder outputDateTo(Function<LocalDate, ChronoLocalDate> outputDateFormat) {
             this.outputDateFormat = outputDateFormat;
             return this;
         }
 
-        public DateConverterBuilder fromLocale(Locale inputLocale) {
+        public Builder fromLocale(Locale inputLocale) {
             this.inputLocale = inputLocale;
             return this;
         }
 
-        public DateConverterBuilder toLocale(Locale outputLocale) {
+        public Builder toLocale(Locale outputLocale) {
             this.outputLocale = outputLocale;
             return this;
         }
 
-        public DateConverterBuilder toZone(String zoneId) {
+        public Builder toZone(String zoneId) {
             this.toZone = ZoneId.of(zoneId);
             return this;
         }
 
         public java.sql.Date toSqlDate() {
-            return new java.sql.Date(this.epochMilli);
+            return new java.sql.Date(this.epochMillis);
         }
 
-        @Override
-        public String toString() {
+        public String format() {
+            Preconditions.checkState(this.inputDateTime != null || this.epochMillis != 0L,
+                    "No input provided. Call from(), current(), or fromEpochMillis() first.");
             Preconditions.checkArgument(StringUtils.isNotBlank(this.outputPattern), "Output pattern should not be null");
 
             if (this.inputDateTime != null) {
@@ -107,7 +112,9 @@ public final class DateConverter {
                 }
                 return this.inputDateTime.atZone(this.toZone).format(outputFormatter);
             } else {
-                return new SimpleDateFormat(this.outputPattern, this.outputLocale).format(this.epochMilli);
+                return DateTimeFormatter.ofPattern(this.outputPattern, this.outputLocale)
+                        .withZone(this.toZone)
+                        .format(Instant.ofEpochMilli(this.epochMillis));
             }
         }
     }
